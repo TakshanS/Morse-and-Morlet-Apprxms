@@ -1,0 +1,100 @@
+u =5;
+v =8;
+gaborArray = gaborFilterBank(5,8,39,39);  % Generates the Gabor filter bank
+featureVector = gaborFeatures(cam,gaborArray,4,4); 
+
+[u,v] = size(gaborArray);
+gaborResult = cell(u,v);
+for i = 1:u
+    for j = 1:v
+        gaborResult{i,j} = imfilter(double(cam), gaborArray{i,j});
+    end
+end
+% Show real parts of Gabor-filtered images
+figure('NumberTitle','Off','Name','Real parts of Gabor filters');
+for i = 1:u
+    for j = 1:v        
+        subplot(u,v,(i-1)*v+j)    
+        imshow(real(gaborResult{i,j}),[]);
+    end
+end
+
+% Show magnitudes of Gabor-filtered images
+figure('NumberTitle','Off','Name','Magnitudes of Gabor filters');
+for i = 1:u
+    for j = 1:v        
+        subplot(u,v,(i-1)*v+j)    
+        imshow(abs(gaborResult{i,j}),[]);
+    end
+end
+
+
+function featureVector = gaborFeatures(img,gaborArray,d1,d2)
+if (nargin ~= 4)        % Check correct number of arguments
+    error('Please use the correct number of input arguments!')
+end
+if size(img,3) == 3     % Check if the input image is grayscale
+    warning('The input RGB image is converted to grayscale!')
+    img = rgb2gray(img);
+end
+img = double(img);
+%% Filter the image using the Gabor filter bank
+% Filter input image by each Gabor filter
+[u,v] = size(gaborArray);
+gaborResult = cell(u,v);
+for i = 1:u
+    for j = 1:v
+        gaborResult{i,j} = imfilter(img, gaborArray{i,j});
+    end
+end
+%% Create feature vector
+% Extract feature vector from input image
+featureVector = [];
+for i = 1:u
+    for j = 1:v
+        
+        gaborAbs = abs(gaborResult{i,j});
+        gaborAbs = downsample(gaborAbs,d1);
+        gaborAbs = downsample(gaborAbs.',d2);
+        gaborAbs = gaborAbs(:);
+        
+        % Normalized to zero mean and unit variance. (if not applicable, please comment this line)
+        gaborAbs = (gaborAbs-mean(gaborAbs))/std(gaborAbs,1);
+        
+        featureVector =  [featureVector; gaborAbs];
+        
+    end
+end
+end
+function gaborArray = gaborFilterBank(u,v,m,n)
+if (nargin ~= 4)    % Check correct number of arguments
+    error('There must be four input arguments (Number of scales and orientations and the 2-D size of the filter)!')
+end
+%% Create Gabor filters
+% Create u*v gabor filters each being an m by n matrix
+gaborArray = cell(u,v);
+fmax = 0.25;
+gama = sqrt(2);
+eta = sqrt(2);
+for i = 1:u
+    
+    fu = fmax/((sqrt(2))^(i-1));
+    alpha = fu/gama;
+    beta = fu/eta;
+    
+    for j = 1:v
+        tetav = ((j-1)/v)*pi;
+        gFilter = zeros(m,n);
+        
+        for x = 1:m
+            for y = 1:n
+                xprime = (x-((m+1)/2))*cos(tetav)+(y-((n+1)/2))*sin(tetav);
+                yprime = -(x-((m+1)/2))*sin(tetav)+(y-((n+1)/2))*cos(tetav);
+                gFilter(x,y) = (fu^2/(pi*gama*eta))*exp(-((alpha^2)*(xprime^2)+(beta^2)*(yprime^2)))*exp(1i*2*pi*fu*xprime);
+            end
+        end
+        gaborArray{i,j} = gFilter;
+        
+    end
+end
+end
